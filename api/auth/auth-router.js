@@ -1,63 +1,35 @@
-// Require `checkUsernameFree`, `checkUsernameExists` and `checkPasswordLength`
-// middleware functions from `auth-middleware.js`. You will need them here!
+const router = require('express').Router()
+const { checkPasswordLength, checkUsernameExists, checkUsernameFree, checkPassword} = require('./auth-middleware')
+const Users = require('../users/users-model')
+const bcrypt = require('bcryptjs')
 
+router.post('/register', checkPasswordLength, checkUsernameFree, (req, res, next) => {
+  const credentials = req.body
+  const hash = bcrypt.hashSync(credentials.password, 14)
+  credentials.password = hash
+  Users.add(credentials)
+    .then(user => res.status(200).json(user))
+    .catch(err => next(err))
+})
 
-/**
-  1 [POST] /api/auth/register { "username": "sue", "password": "1234" }
+router.post('/login', checkUsernameExists, checkPassword, (req,res,next) => {
+  req.session.name = req.body.username
+  res.status(200).json({message: `Welcome ${req.session.name}`})
 
-  response:
-  status 200
-  {
-    "user_id": 2,
-    "username": "sue"
+})
+
+router.get('/logout', (req,res,next) => {
+  if(req.session){
+    req.session.destroy(err => {
+      if(err){
+        next({message: "error loggin out"})
+      } else {
+        res.status(200).json({message: "logged out"})
+      }
+    })
+  } else {
+    res.status(200).json({message: "no session"})
   }
+})
 
-  response on username taken:
-  status 422
-  {
-    "message": "Username taken"
-  }
-
-  response on password three chars or less:
-  status 422
-  {
-    "message": "Password must be longer than 3 chars"
-  }
- */
-
-
-/**
-  2 [POST] /api/auth/login { "username": "sue", "password": "1234" }
-
-  response:
-  status 200
-  {
-    "message": "Welcome sue!"
-  }
-
-  response on invalid credentials:
-  status 401
-  {
-    "message": "Invalid credentials"
-  }
- */
-
-
-/**
-  3 [GET] /api/auth/logout
-
-  response for logged-in users:
-  status 200
-  {
-    "message": "logged out"
-  }
-
-  response for not-logged-in users:
-  status 200
-  {
-    "message": "no session"
-  }
- */
-
- 
-// Don't forget to add the router to the `exports` object so it can be required in other modules
+module.exports = router
